@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Meridian</title>
+<meta name="description" content="Sun-based daily times and direction.">
+<meta name="theme-color" content="#EDF1F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A1322" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meridian">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>:root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap">
+<style>
+/* Concept: the day's real sky is the interface. Calm neutrals, one sky-coloured chart, quiet rows. No religious imagery. */
+:root{
+  --bg:#EDF1F7; --surface:#FAFBFE; --ink:#10223A; --muted:#5A6D85; --line:#D2DBE8;
+  --accent:#0E6F61; --accent-ink:#FFFFFF; --sun:#E2A12B;
+  --font-display:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --font-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"DM Mono",ui-monospace,Menlo,monospace;
+  --font-call:"Aref Ruqaa","Noto Naskh Arabic",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A1322; --surface:#111E33; --ink:#E7EEF8; --muted:#93A5BD; --line:#213250;
+    --accent:#45C4AA; --accent-ink:#06231D; --sun:#F1B84B; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A1322; --surface:#111E33; --ink:#E7EEF8; --muted:#93A5BD; --line:#213250;
+  --accent:#45C4AA; --accent-ink:#06231D; --sun:#F1B84B; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--font-body);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,select:focus-visible,input:focus-visible,.date:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:480px;margin-inline:auto;padding-inline:16px;padding-block:18px 104px;display:grid;gap:14px}
+.tab{display:grid;gap:14px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;min-width:0}
+.eyebrow{font:500 11.5px var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.small{font-size:12.5px;color:var(--muted);margin:0}
+
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.loc{text-align:left;display:grid;gap:3px;min-width:0}
+.loc-name{font:400 34px/1.05 var(--font-display);display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
+.loc-name svg{flex:none;color:var(--muted)}
+.loc-sub{font:12px var(--font-mono);color:var(--muted)}
+.hijri{font:12px/1.4 var(--font-mono);color:var(--muted);text-align:right;flex:none;max-width:42%}
+
+.banner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:12px 14px}
+.banner p{margin:0;font-size:14px}
+.banner .small{grid-column:1 / -1}
+.btn{padding:11px 14px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn[disabled]{opacity:.45;cursor:default}
+
+.datebar{display:grid;grid-template-columns:48px minmax(0,1fr) 48px;gap:8px}
+.step,.date{height:50px;border-radius:15px;background:var(--surface);border:1px solid var(--line)}
+.step{display:grid;place-items:center}
+.date{position:relative;display:grid;place-items:center;text-align:center;font-weight:600;padding-inline:8px;line-height:1.2}
+.date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.date .tag{font:500 10.5px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.todaybtn{justify-self:center;font-size:13px;color:var(--accent);padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+
+.hero{position:relative;padding:18px 16px 16px;overflow:hidden}
+.hero-main{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:6px 16px;margin-top:6px}
+.next-name{font:400 52px/1 var(--font-display);letter-spacing:-.01em}
+.next-at{color:var(--muted);font-size:15px;margin-top:2px}
+.count{font:500 32px/1 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.side{font:12px/1.5 var(--font-mono);color:var(--muted);text-align:right}
+.side b{display:block;font-size:20px;font-weight:500;color:var(--ink)}
+.callig{position:absolute;top:10px;right:16px;font:400 34px/1.2 var(--font-call);color:var(--muted)}
+.chart{display:block;width:100%;height:auto;margin-top:16px;border-radius:14px}
+.chart text{font-family:var(--font-mono);font-size:10px;fill:#fff;paint-order:stroke;stroke:rgba(6,12,28,.6);stroke-width:3px;stroke-linejoin:round}
+.chart .init{font-weight:500;font-size:11.5px;text-anchor:middle}
+.chart .hz{stroke:rgba(255,255,255,.55);stroke-width:1}
+.chart .tw{stroke:rgba(255,255,255,.28);stroke-width:1;stroke-dasharray:3 4}
+.chart .shade{fill:rgba(6,12,28,.38)}
+.chart .under{fill:none;stroke:rgba(6,12,28,.4);stroke-width:5.5;stroke-linejoin:round}
+.chart .curve{fill:none;stroke:#FFE9A8;stroke-width:2.6;stroke-linejoin:round}
+.chart .pt{fill:#fff;stroke:rgba(6,12,28,.75);stroke-width:1.6}
+.chart .now{fill:#FFC93C;stroke:#fff;stroke-width:2.5}
+.chart .halo{fill:#FFC93C;opacity:.3}
+.sunnow{font:12px/1.5 var(--font-mono);color:var(--muted);margin:10px 0 0}
+
+.list{padding:6px 14px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.en{font-weight:600;font-size:17px}
+.why{font-size:12.5px;color:var(--muted);margin-top:1px}
+.tm{font:500 24px var(--font-mono);font-variant-numeric:tabular-nums}
+.row.minor .en{font-weight:500;color:var(--muted)}
+.row.minor .tm{font-size:19px;color:var(--muted)}
+.row.past .tm{opacity:.5}
+.row.cur .en::after{content:"now";margin-left:8px;font:500 10.5px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 7px;vertical-align:2px}
+.row.next{background:var(--accent);color:var(--accent-ink);border-radius:14px;padding-inline:14px;margin-inline:-8px;border-top-color:transparent}
+.row.next + .row{border-top-color:transparent}
+.row.next .why{color:inherit;opacity:.85}
+.row.next .tm{color:inherit}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 6px;padding-top:10px;border-top:1px solid var(--line)}
+
+.qhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:6px;flex-wrap:wrap}
+.qdeg{font:500 44px/1 var(--font-mono);letter-spacing:-.03em}
+.qmeta{font:12px/1.5 var(--font-mono);color:var(--muted);text-align:right}
+.dial{display:block;width:min(100%,300px);height:auto;margin:10px auto 2px}
+.dial .ring{fill:none;stroke:var(--line);stroke-width:1.5}
+.dial .tick{stroke:var(--muted);stroke-width:1}
+.dial .tick.maj{stroke:var(--ink);stroke-width:1.5}
+.dial text{font-family:var(--font-mono);font-size:13px;font-weight:600;fill:var(--muted);text-anchor:middle;dominant-baseline:central}
+.dial text.n{fill:var(--accent);font-size:16px}
+.dial .needle{stroke:var(--accent);stroke-width:2.5;stroke-linecap:round}
+.dial .mk{fill:var(--accent)}
+.dial .mk2{fill:var(--surface)}
+.dial .sunmk{fill:var(--sun);stroke:var(--surface);stroke-width:2}
+.dial .hub{fill:var(--accent)}
+.dial .lub{fill:var(--ink)}
+.dial.ok .ring{stroke:var(--accent);stroke-width:3}
+.qstate{text-align:center;font-weight:600;margin:4px 0 0;min-height:1.4em}
+.sunal{display:grid;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:14px}
+.sunal b{font:500 15px var(--font-mono)}
+.cmp{display:grid;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+
+.f{display:grid;gap:5px;font-size:13px;color:var(--muted);min-width:0}
+select,input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-width:0;width:100%}
+.fields{display:grid;gap:14px}
+h2{font:400 26px/1.1 var(--font-display);margin:0 0 14px}
+.foot{font-size:12px;color:var(--muted);margin:2px 4px 0}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+.tabs-in{max-width:480px;margin-inline:auto;display:grid;grid-template-columns:repeat(3,1fr)}
+.tabbtn{display:grid;justify-items:center;gap:3px;padding:10px 6px 9px;color:var(--muted);font-size:11.5px;font-weight:500}
+.tabbtn[aria-selected="true"]{color:var(--accent)}
+</style>
+
+<div class="app">
+  <header class="top">
+    <button class="loc" id="locBtn" aria-label="Change location">
+      <span class="loc-name"><span id="locName"></span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="loc-sub" id="locSub"></span>
+    </button>
+    <div class="hijri" id="hijri"></div>
+  </header>
+
+  <div class="card banner" id="banner" hidden>
+    <p id="bannerText"></p>
+    <button class="btn" id="bannerBtn">Use my location</button>
+    <p class="small" id="bannerMsg"></p>
+  </div>
+
+  <section class="tab" id="tab-times" aria-label="Times">
+    <nav class="datebar" aria-label="Choose date">
+      <button class="step" id="prev" aria-label="Previous day"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <label class="date" for="datePick"><span id="dateText"></span><span class="tag" id="dateTag"></span><input id="datePick" type="date" aria-label="Pick a date"></label>
+      <button class="step" id="next" aria-label="Next day"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M8 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </nav>
+    <button class="todaybtn" id="todayBtn" hidden>Back to today</button>
+    <section class="card hero" id="hero" aria-label="Next prayer and the sun today"></section>
+    <section class="card list" id="rows" aria-label="Times"></section>
+    <p class="foot">Calculated on your phone from the sun's position. Compare with your local timetable before relying on them.</p>
+  </section>
+
+  <section class="tab" id="tab-qibla" aria-label="Direction" hidden>
+    <div class="card">
+      <div class="eyebrow" id="qTitle">Qibla · from true north</div>
+      <div class="qhead"><div class="qdeg" id="qdeg"></div><div class="qmeta" id="qmeta"></div></div>
+      <div id="dialWrap"></div>
+      <p class="qstate" id="qstate"></p>
+      <div class="sunal" id="sunal"></div>
+      <div class="cmp">
+        <div class="two">
+          <button class="btn ghost" id="cmpBtn">Start live compass</button>
+          <button class="btn ghost" id="calBtn" disabled>Calibrate to the sun</button>
+        </div>
+        <p class="small" id="cmpMsg"></p>
+        <p class="small">Phone compasses point to magnetic north. To correct that, start the compass, lay the phone flat with its top edge aimed at the sun, and tap Calibrate. The app then knows the exact offset for where you are.</p>
+        <label class="f" for="dec">Compass offset to true north (° east)<input id="dec" type="number" step="0.1" value="0" inputmode="decimal"></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-settings" aria-label="Settings" hidden>
+    <div class="card">
+      <h2>Location</h2>
+      <div class="fields">
+        <label class="f" for="city">City<select id="city"></select></label>
+        <div class="two">
+          <label class="f" for="lat">Latitude<input id="lat" type="number" step="0.0001" inputmode="decimal"></label>
+          <label class="f" for="lng">Longitude<input id="lng" type="number" step="0.0001" inputmode="decimal"></label>
+        </div>
+        <div class="two">
+          <button class="btn" id="applyLL">Use coordinates</button>
+          <button class="btn ghost" id="gps">Use my location</button>
+        </div>
+        <p class="small" id="gpsMsg"></p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Calculation</h2>
+      <div class="fields">
+        <label class="f" for="method">Method<select id="method"></select></label>
+        <div class="two">
+          <label class="f" for="asr">Afternoon shadow<select id="asr"><option value="1">Standard (1×)</option><option value="2">Hanafi (2×)</option></select></label>
+          <label class="f" for="h24">Clock<select id="h24"><option value="1">24-hour</option><option value="0">12-hour</option></select></label>
+        </div>
+        <label class="f" for="hl">When the sun doesn't reach the twilight angle<select id="hl"><option value="angle">Angle-based night fraction</option><option value="seventh">One-seventh of the night</option><option value="middle">Middle of the night</option></select></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Appearance</h2>
+      <div class="fields">
+        <label class="f" for="names">Names<select id="names"><option value="std">Standard (Fajr, Dhuhr, Asr…)</option><option value="neutral">Discreet (Dawn, Midday, Afternoon…)</option></select></label>
+        <label class="f" for="callig">Calligraphy accent<select id="callig"><option value="1">Show next prayer in calligraphy</option><option value="0">Off</option></select></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>On your phone</h2>
+      <p class="small">iPhone: open the site in Safari, tap Share, then Add to Home Screen. Android: open it in Chrome, tap the menu, then Install app.</p>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Sections"><div class="tabs-in">
+  <button class="tabbtn" id="nav-times" aria-selected="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 17h18"/><path d="M7 17a5 5 0 0 1 10 0"/><path d="M12 5v3M4.9 8.9l2 2M19.1 8.9l-2 2"/></svg>Times</button>
+  <button class="tabbtn" id="nav-qibla" aria-selected="false"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg><span id="navQ">Qibla</span></button>
+  <button class="tabbtn" id="nav-settings" aria-selected="false"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Settings</button>
+</div></nav>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+
+//<calc>
+const R2D=180/Math.PI, D2R=Math.PI/180, RISE=0.833;
+const sin=d=>Math.sin(d*D2R), cos=d=>Math.cos(d*D2R), tan=d=>Math.tan(d*D2R);
+const asin=x=>Math.asin(x)*R2D, acos=x=>Math.acos(x)*R2D, atan2=(y,x)=>Math.atan2(y,x)*R2D, arccot=x=>Math.atan(1/x)*R2D;
+const fixA=a=>{a=a%360;return a<0?a+360:a};
+const fixH=h=>{h=h%24;return h<0?h+24:h};
+const wrap180=a=>{a=fixA(a);return a>180?a-360:a};
+
+function julian(y,m,d){
+  if(m<=2){y-=1;m+=12}
+  const A=Math.floor(y/100), B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+B-1524.5;
+}
+// Declination (deg) and equation of time (hours) for a Julian date.
+function sunPos(jd){
+  const D=jd-2451545.0;
+  const g=fixA(357.529+0.98560028*D), q=fixA(280.459+0.98564736*D);
+  const L=fixA(q+1.915*sin(g)+0.020*sin(2*g));
+  const e=23.439-0.00000036*D;
+  const RA=fixH(atan2(cos(e)*sin(L),cos(L))/15);
+  let eqt=q/15-RA; eqt=((eqt+12)%24+24)%24-12;
+  return {decl:asin(sin(e)*sin(L)), eqt};
+}
+// Altitude and azimuth (from true north, clockwise) of the sun at an instant.
+function sunAt(ms,lat,lng){
+  const {decl,eqt}=sunPos(ms/86400000+2440587.5);
+  const utcH=((ms/3600000)%24+24)%24;
+  const H=15*(utcH+lng/15+eqt-12);
+  const alt=asin(sin(lat)*sin(decl)+cos(lat)*cos(decl)*cos(H));
+  const az=fixA(atan2(sin(H),cos(H)*sin(lat)-tan(decl)*cos(lat))+180);
+  return {alt,az,decl};
+}
+const METHODS={
+  MWL:{n:'Muslim World League',fajr:18,isha:17},
+  ISNA:{n:'ISNA (North America)',fajr:15,isha:15},
+  EGY:{n:'Egyptian General Authority',fajr:19.5,isha:17.5},
+  KHI:{n:'Karachi (Islamic Sciences)',fajr:18,isha:18},
+  UAQ:{n:'Umm al-Qura (Makkah)',fajr:18.5,ishaMin:90},
+  TUR:{n:'Diyanet (Türkiye)',fajr:18,isha:17},
+  UOIF:{n:'UOIF (France)',fajr:12,isha:12}
+};
+function prayerTimes(y,m,d,lat,lng,M,asrF,hl){
+  const jd0=julian(y,m,d)-lng/360;
+  const mid=t=>fixH(12-sunPos(jd0+t).eqt);
+  // time at which the sun reaches altitude -ang (ang = depression below horizon)
+  const at=(ang,t,ccw)=>{
+    const dc=sunPos(jd0+t).decl;
+    const x=(-sin(ang)-sin(lat)*sin(dc))/(cos(lat)*cos(dc));
+    if(x<-1||x>1) return NaN;
+    const v=acos(x)/15;
+    return mid(t)+(ccw?-v:v);
+  };
+  const asrAt=(f,t)=>{const dc=sunPos(jd0+t).decl;return at(-arccot(f+tan(Math.abs(lat-dc))),t,false)};
+  let T={fajr:5,sunrise:6,dhuhr:12,asr:13,sunset:18,isha:18}, R={};
+  for(let i=0;i<3;i++){
+    const f=k=>T[k]/24;
+    R={
+      dhuhr:mid(f('dhuhr')),
+      fajr:at(M.fajr,f('fajr'),true),
+      sunrise:at(RISE,f('sunrise'),true),
+      asr:asrAt(asrF,f('asr')),
+      sunset:at(RISE,f('sunset'),false),
+      isha:M.ishaMin!=null?NaN:at(M.isha,f('isha'),false)
+    };
+    for(const k in R) if(!isNaN(R[k])) T[k]=R[k];
+  }
+  const adj={fajr:false,isha:false};
+  if(!isNaN(R.sunrise)&&!isNaN(R.sunset)){
+    const night=fixH(R.sunrise-R.sunset);
+    const portion=ang=>(hl==='middle'?0.5:hl==='seventh'?1/7:ang/60)*night;
+    const pf=portion(M.fajr);
+    if(isNaN(R.fajr)||fixH(R.sunrise-R.fajr)>pf){R.fajr=R.sunrise-pf;adj.fajr=true}
+    if(M.ishaMin!=null){R.isha=R.sunset+M.ishaMin/60}
+    else{
+      const pi=portion(M.isha);
+      if(isNaN(R.isha)||fixH(R.isha-R.sunset)>pi){R.isha=R.sunset+pi;adj.isha=true}
+    }
+  }
+  const toMs=h=>isNaN(h)?null:Math.round((Date.UTC(y,m-1,d)+(h-lng/15)*3600000)/60000)*60000;
+  return {t:{fajr:toMs(R.fajr),sunrise:toMs(R.sunrise),dhuhr:toMs(R.dhuhr),asr:toMs(R.asr),maghrib:toMs(R.sunset),isha:toMs(R.isha)},adj};
+}
+const KAABA={lat:21.4225,lng:39.8262};
+function qiblaInfo(lat,lng){
+  const dl=(KAABA.lng-lng)*D2R, p1=lat*D2R, p2=KAABA.lat*D2R;
+  const bearing=fixA(Math.atan2(Math.sin(dl)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl))*R2D);
+  const a=Math.sin((p2-p1)/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return {bearing,dist:2*6371*Math.asin(Math.min(1,Math.sqrt(a)))};
+}
+// First minute when the sun stands over the Qibla bearing, and when it stands opposite.
+function sunAlign(t0,t1,lat,lng,q){
+  const out={over:null,opp:null};
+  let pa=null,pb=null;
+  for(let ms=t0;ms<=t1;ms+=60000){
+    const s=sunAt(ms,lat,lng);
+    if(s.alt<2){pa=pb=null;continue}
+    const a=wrap180(s.az-q), b=wrap180(s.az-q-180);
+    if(pa!==null&&out.over===null&&Math.abs(a)<30&&pa*a<=0) out.over=ms;
+    if(pb!==null&&out.opp===null&&Math.abs(b)<30&&pb*b<=0) out.opp=ms;
+    pa=a;pb=b;
+  }
+  return out;
+}
+function ymdIn(ms,tz){
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(ms);
+  const g=t=>+p.find(x=>x.type===t).value;
+  return {y:g('year'),m:g('month'),d:g('day')};
+}
+function tzOffset(ms,tz){
+  const p=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'}).formatToParts(ms);
+  const g=t=>+p.find(x=>x.type===t).value;
+  return Date.UTC(g('year'),g('month')-1,g('day'),g('hour'),g('minute'),g('second'))-Math.floor(ms/1000)*1000;
+}
+function localMidnight(y,m,d,tz){
+  const g=Date.UTC(y,m-1,d);
+  const t=g-tzOffset(g,tz);
+  return g-tzOffset(t,tz);
+}
+//</calc>
+
+const NAMES={fajr:'Fajr',sunrise:'Sunrise',dhuhr:'Dhuhr',asr:'Asr',maghrib:'Maghrib',isha:'Isha'};
+const NEUTRAL={fajr:'Dawn',sunrise:'Sunrise',dhuhr:'Midday',asr:'Afternoon',maghrib:'Sunset',isha:'Night'};
+const AR={fajr:'الفجر',dhuhr:'الظهر',asr:'العصر',maghrib:'المغرب',isha:'العشاء'};
+const INIT_STD={fajr:'F',sunrise:'↑',dhuhr:'D',asr:'A',maghrib:'M',isha:'I'};
+const INIT_NEU={fajr:'D',sunrise:'↑',dhuhr:'M',asr:'A',maghrib:'↓',isha:'N'};
+const ORDER=['fajr','sunrise','dhuhr','asr','maghrib','isha'];
+const PRAYERS=['fajr','dhuhr','asr','maghrib','isha'];
+const CITIES=[
+  ['Prague',50.0755,14.4378,'Europe/Prague'],['Brno',49.1951,16.6068,'Europe/Prague'],['Vienna',48.2082,16.3738,'Europe/Vienna'],
+  ['Berlin',52.52,13.405,'Europe/Berlin'],['Warsaw',52.2297,21.0122,'Europe/Warsaw'],['Budapest',47.4979,19.0402,'Europe/Budapest'],
+  ['Bratislava',48.1486,17.1077,'Europe/Bratislava'],['Paris',48.8566,2.3522,'Europe/Paris'],['London',51.5074,-0.1278,'Europe/London'],
+  ['Madrid',40.4168,-3.7038,'Europe/Madrid'],['Brussels',50.8503,4.3517,'Europe/Brussels'],['Amsterdam',52.3676,4.9041,'Europe/Amsterdam'],
+  ['Rome',41.9028,12.4964,'Europe/Rome'],['Sarajevo',43.8563,18.4131,'Europe/Sarajevo'],['Istanbul',41.0082,28.9784,'Europe/Istanbul'],
+  ['Moscow',55.7558,37.6173,'Europe/Moscow'],['Cairo',30.0444,31.2357,'Africa/Cairo'],['Casablanca',33.5731,-7.5898,'Africa/Casablanca'],
+  ['Tunis',36.8065,10.1815,'Africa/Tunis'],['Algiers',36.7538,3.0588,'Africa/Algiers'],['Mecca',21.4225,39.8262,'Asia/Riyadh'],
+  ['Medina',24.4686,39.6142,'Asia/Riyadh'],['Riyadh',24.7136,46.6753,'Asia/Riyadh'],['Jeddah',21.4858,39.1925,'Asia/Riyadh'],
+  ['Dubai',25.2048,55.2708,'Asia/Dubai'],['Doha',25.2854,51.531,'Asia/Qatar'],['Kuwait City',29.3759,47.9774,'Asia/Kuwait'],
+  ['Amman',31.9454,35.9284,'Asia/Amman'],['Beirut',33.8938,35.5018,'Asia/Beirut'],['Jerusalem',31.7683,35.2137,'Asia/Jerusalem'],
+  ['Baghdad',33.3152,44.3661,'Asia/Baghdad'],['Tehran',35.6892,51.389,'Asia/Tehran'],['Karachi',24.8607,67.0011,'Asia/Karachi'],
+  ['Delhi',28.6139,77.209,'Asia/Kolkata'],['Dhaka',23.8103,90.4125,'Asia/Dhaka'],['Jakarta',-6.2088,106.8456,'Asia/Jakarta'],
+  ['Kuala Lumpur',3.139,101.6869,'Asia/Kuala_Lumpur'],['Ottawa',45.4215,-75.6972,'America/Toronto'],['Toronto',43.6532,-79.3832,'America/Toronto'],
+  ['Montréal',45.5017,-73.5673,'America/Toronto'],['Vancouver',49.2827,-123.1207,'America/Vancouver'],['New York',40.7128,-74.006,'America/New_York'],
+  ['Washington DC',38.9072,-77.0369,'America/New_York'],['Sydney',-33.8688,151.2093,'Australia/Sydney'],['Johannesburg',-26.2041,28.0473,'Africa/Johannesburg']
+];
+const WIND=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const wind=a=>WIND[Math.round(fixA(a)/22.5)%16];
+const deg=(v,d=1)=>(v<0?'−':'')+Math.abs(v).toFixed(d)+'°';
+const pad=n=>String(n).padStart(2,'0');
+const deviceTz=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'}catch(e){return 'UTC'}};
+function distKm(a,b,c,d){
+  const p1=a*D2R,p2=c*D2R,dl=(d-b)*D2R;
+  const h=Math.sin((p2-p1)/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*6371*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function nearestCity(lat,lng){
+  let best=null,bd=1e9;
+  for(const c of CITIES){const d=distKm(lat,lng,c[1],c[2]);if(d<bd){bd=d;best=c}}
+  return bd<40?best:null;
+}
+
+/* ---------- state ---------- */
+const KEY='meridian-v1';
+const S={loc:{name:'Prague',lat:50.0755,lng:14.4378,tz:'Europe/Prague'},method:'MWL',asr:1,hl:'angle',h24:true,dec:0,
+  names:'std',callig:true,useGps:false,manual:false,tab:'times',date:null};
+try{
+  const o=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(o){
+    if(o.loc&&isFinite(o.loc.lat)&&isFinite(o.loc.lng)&&o.loc.tz) S.loc=o.loc;
+    if(METHODS[o.method]) S.method=o.method;
+    if(o.asr===1||o.asr===2) S.asr=o.asr;
+    if(['angle','seventh','middle'].includes(o.hl)) S.hl=o.hl;
+    if(typeof o.h24==='boolean') S.h24=o.h24;
+    if(isFinite(o.dec)) S.dec=o.dec;
+    if(o.names==='neutral') S.names='neutral';
+    if(typeof o.callig==='boolean') S.callig=o.callig;
+    S.useGps=!!o.useGps; S.manual=!!o.manual;
+    if(['times','qibla','settings'].includes(o.tab)) S.tab=o.tab;
+  }
+}catch(e){}
+try{ new Intl.DateTimeFormat('en',{timeZone:S.loc.tz}) }catch(e){ S.loc.tz=deviceTz() }
+function save(){try{localStorage.setItem(KEY,JSON.stringify({loc:S.loc,method:S.method,asr:S.asr,hl:S.hl,h24:S.h24,dec:S.dec,names:S.names,callig:S.callig,useGps:S.useGps,manual:S.manual,tab:S.tab}))}catch(e){}}
+S.date=ymdIn(Date.now(),S.loc.tz);
+const isToday=()=>{const t=ymdIn(Date.now(),S.loc.tz);return t.y===S.date.y&&t.m===S.date.m&&t.d===S.date.d};
+const nm=k=>S.names==='neutral'?NEUTRAL[k]:NAMES[k];
+const initOf=k=>(S.names==='neutral'?INIT_NEU:INIT_STD)[k];
+
+const fmtT=ms=>new Intl.DateTimeFormat(S.h24?'en-GB':'en-US',{timeZone:S.loc.tz,hour:S.h24?'2-digit':'numeric',minute:'2-digit',hourCycle:S.h24?'h23':'h12'}).format(ms);
+const cdText=ms=>{const s=Math.max(0,Math.floor(ms/1000));return Math.floor(s/3600)+':'+pad(Math.floor(s%3600/60))+':'+pad(s%60)};
+const durText=ms=>{const m=Math.round(ms/60000);return Math.floor(m/60)+' h '+pad(m%60)+' min'};
+
+/* ---------- compute (cached) ---------- */
+let cache={key:'',D:null}, cur=null, nextCache=null;
+function compute(){
+  const key=JSON.stringify([S.date,S.loc,S.method,S.asr,S.hl]);
+  if(cache.key===key) return cache.D;
+  const {y,m,d}=S.date,{lat,lng,tz}=S.loc,M=METHODS[S.method];
+  const pt=prayerTimes(y,m,d,lat,lng,M,S.asr,S.hl);
+  const t0=localMidnight(y,m,d,tz);
+  const nx=new Date(Date.UTC(y,m-1,d+1));
+  const t1=localMidnight(nx.getUTCFullYear(),nx.getUTCMonth()+1,nx.getUTCDate(),tz);
+  const samples=[];let maxAlt=-90;
+  for(let ms=t0;ms<=t1;ms+=600000){const a=sunAt(ms,lat,lng).alt;samples.push([ms,a]);if(a>maxAlt)maxAlt=a}
+  const q=qiblaInfo(lat,lng);
+  const D={t:pt.t,adj:pt.adj,t0,t1,samples,maxAlt,q,align:sunAlign(t0,t1,lat,lng,q.bearing),
+    noon:pt.t.dhuhr?sunAt(pt.t.dhuhr,lat,lng):null,
+    day:(pt.t.sunrise&&pt.t.maghrib)?pt.t.maghrib-pt.t.sunrise:null};
+  cache={key,D};return D;
+}
+function nextInfo(D,now){
+  for(const k of PRAYERS) if(D.t[k]&&D.t[k]>now) return {k,ms:D.t[k]};
+  const n=new Date(Date.UTC(S.date.y,S.date.m-1,S.date.d+1));
+  const T=prayerTimes(n.getUTCFullYear(),n.getUTCMonth()+1,n.getUTCDate(),S.loc.lat,S.loc.lng,METHODS[S.method],S.asr,S.hl);
+  return {k:'fajr',ms:T.t.fajr,tomorrow:true};
+}
+
+/* ---------- views ---------- */
+const SKY=[[-18,[10,16,32]],[-12,[27,42,85]],[-6,[71,80,143]],[-1,[185,112,142]],[3,[233,160,107]],[12,[111,166,220]],[30,[74,139,209]],[90,[63,130,204]]];
+function skyColor(a){
+  if(a<=SKY[0][0]) return SKY[0][1];
+  for(let i=1;i<SKY.length;i++){
+    if(a<=SKY[i][0]){
+      const [a0,c0]=SKY[i-1],[a1,c1]=SKY[i],t=(a-a0)/(a1-a0);
+      return c0.map((v,j)=>Math.round(v+(c1[j]-v)*t));
+    }
+  }
+  return SKY[SKY.length-1][1];
+}
+function chart(D,now,today){
+  const W=360,H=168,pl=32,pr=10,top=14,bot=24;
+  const yMin=-26,yMax=Math.max(20,Math.ceil((D.maxAlt+6)/5)*5);
+  const x=ms=>pl+(ms-D.t0)/(D.t1-D.t0)*(W-pl-pr);
+  const y=a=>top+(yMax-a)/(yMax-yMin)*(H-top-bot);
+  const curve='M'+D.samples.map(s=>x(s[0]).toFixed(1)+','+y(s[1]).toFixed(1)).join(' L');
+  const y0=y(0),M=METHODS[S.method];
+  const stops=D.samples.map(s=>{const c=skyColor(s[1]);return `<stop offset="${((s[0]-D.t0)/(D.t1-D.t0)).toFixed(4)}" stop-color="rgb(${c[0]},${c[1]},${c[2]})"/>`}).join('');
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sun altitude across the day with times marked">`;
+  s+=`<defs><linearGradient id="sky" x1="0" x2="1" y1="0" y2="0">${stops}</linearGradient><clipPath id="cpBox"><rect x="0" y="0" width="${W}" height="${H}" rx="14"/></clipPath></defs>`;
+  s+=`<g clip-path="url(#cpBox)"><rect x="0" y="0" width="${W}" height="${H}" fill="url(#sky)"/><rect class="shade" x="0" y="${y0.toFixed(1)}" width="${W}" height="${(H-y0).toFixed(1)}"/>`;
+  [...new Set([M.fajr,M.isha].filter(v=>v!=null))].forEach(a=>{const yy=y(-a);s+=`<line class="tw" x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}"/><text x="${pl-5}" y="${yy+3}" text-anchor="end">−${a}°</text>`});
+  s+=`<line class="hz" x1="${pl}" x2="${W-pr}" y1="${y0}" y2="${y0}"/><text x="${pl-5}" y="${y0+3}" text-anchor="end">0°</text>`;
+  s+=`<path class="under" d="${curve}"/><path class="curve" d="${curve}"/>`;
+  for(const k of ORDER){
+    const t=D.t[k];if(!t)continue;
+    const a=sunAt(t,S.loc.lat,S.loc.lng).alt, px=x(t), py=y(Math.max(a,yMin));
+    s+=`<circle class="pt" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.6"/><text class="init" x="${px.toFixed(1)}" y="${(a>0?py-9:py+17).toFixed(1)}">${initOf(k)}</text>`;
+  }
+  for(let i=0;i<=4;i++){
+    const ms=D.t0+i*(D.t1-D.t0)/4;
+    s+=`<text x="${x(ms).toFixed(1)}" y="${H-7}" text-anchor="${i===0?'start':i===4?'end':'middle'}">${i===4?'24:00':i===0?'00:00':fmtT(ms)}</text>`;
+  }
+  if(today&&now>=D.t0&&now<=D.t1){
+    const a=sunAt(now,S.loc.lat,S.loc.lng).alt, px=x(now), py=y(Math.max(a,yMin));
+    s+=`<circle class="halo" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="11"/><circle class="now" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="6"/>`;
+  }
+  return s+'</g></svg>';
+}
+function renderHero(D,now,today){
+  let h='';
+  if(today){
+    const nx=nextCache=nextInfo(D,now);
+    h+=`<div class="eyebrow">Next${nx.tomorrow?' · tomorrow':''}</div>`;
+    if(S.callig) h+=`<div class="callig" lang="ar" dir="rtl" aria-hidden="true">${AR[nx.k]}</div>`;
+    h+=`<div class="hero-main"><div><div class="next-name">${nm(nx.k)}</div><div class="next-at">at ${nx.ms?fmtT(nx.ms):'—'}</div></div><div class="count" id="cd">${nx.ms?cdText(nx.ms-now):'–'}</div></div>`;
+  }else{
+    nextCache=null;
+    h+=`<div class="eyebrow">Daylight on this date</div><div class="hero-main"><div class="next-name">${D.day?durText(D.day):'—'}</div><div class="side">Solar noon<b>${D.t.dhuhr?fmtT(D.t.dhuhr):'—'}</b></div></div>`;
+  }
+  h+=chart(D,now,today);
+  if(today){
+    const s=sunAt(now,S.loc.lat,S.loc.lng);
+    h+=`<p class="sunnow">Sun now · altitude ${deg(s.alt)} · azimuth ${s.az.toFixed(0)}° ${wind(s.az)}</p>`;
+  }else if(D.noon){
+    h+=`<p class="sunnow">Highest sun ${deg(D.noon.alt)} · declination ${deg(D.noon.decl)}</p>`;
+  }
+  $('hero').innerHTML=h;
+}
+function renderRows(D,now,today){
+  const M=METHODS[S.method];
+  const why={
+    fajr:`Sun ${M.fajr}° below the horizon`+(D.adj.fajr?' (night-fraction rule)':''),
+    sunrise:"Sun's upper edge meets the horizon",
+    dhuhr:'Sun crosses the meridian',
+    asr:S.asr===1?'Shadow = object + noon shadow':'Shadow = 2× object + noon shadow',
+    maghrib:'Sun fully below the horizon',
+    isha:(M.ishaMin!=null?M.ishaMin+' minutes after sunset':`Sun ${M.isha}° below the horizon`)+(D.adj.isha?' (night-fraction rule)':'')
+  };
+  let curK=null;
+  if(today){
+    for(const k of PRAYERS) if(D.t[k]&&D.t[k]<=now) curK=k;
+    if(curK==='fajr'&&D.t.sunrise&&now>=D.t.sunrise) curK=null;
+  }
+  const nx=today&&nextCache&&!nextCache.tomorrow?nextCache.k:null;
+  let h='';
+  for(const k of ORDER){
+    const t=D.t[k],cls=['row'];
+    if(k==='sunrise')cls.push('minor');
+    if(k===nx)cls.push('next');
+    if(k===curK)cls.push('cur');
+    if(today&&t&&t<now&&k!==curK)cls.push('past');
+    h+=`<div class="${cls.join(' ')}"><div><div class="en">${nm(k)}</div><div class="why">${why[k]}</div></div><div class="tm">${t?fmtT(t):'—'}</div></div>`;
+  }
+  if(D.adj.fajr||D.adj.isha){
+    const rule=S.hl==='middle'?'middle-of-the-night':S.hl==='seventh'?'one-seventh-of-the-night':'angle-based night-fraction';
+    h+=`<p class="note">At this latitude the sun does not sink far enough below the horizon around this date, so ${D.adj.fajr&&D.adj.isha?nm('fajr')+' and '+nm('isha')+' use':D.adj.fajr?nm('fajr')+' uses':nm('isha')+' uses'} the ${rule} rule.</p>`;
+  }
+  $('rows').innerHTML=h;
+}
+function renderQibla(D){
+  const q=D.q,word=S.names==='neutral'?'Bearing':'Qibla';
+  $('qTitle').textContent=word+' · from true north';
+  $('navQ').textContent=S.names==='neutral'?'Bearing':'Qibla';
+  $('qdeg').textContent=q.dist<1?'—':q.bearing.toFixed(1)+'°';
+  $('qmeta').innerHTML=q.dist<1?'You are at the target':`${wind(q.bearing)} · great-circle<br>${Math.round(q.dist).toLocaleString('en')} km away`;
+  let h='';
+  if(q.dist>=1){
+    const a=D.align;
+    if(a.over) h+=`<div>The sun stands over this direction at <b>${fmtT(a.over)}</b>. Shadows point directly away from it then.</div>`;
+    if(a.opp) h+=`<div>The sun is exactly opposite at <b>${fmtT(a.opp)}</b>. Shadows point toward it then.</div>`;
+    if(!a.over&&!a.opp) h+=`<div class="small">On this date the sun does not line up with this direction at your location.</div>`;
+    else h=`<div class="eyebrow">Find it with the sun</div>`+h;
+  }
+  $('sunal').innerHTML=h;
+  $('sunal').hidden=!h;
+}
+let Hmag=null;
+function renderDial(){
+  if(!cur)return;
+  const q=cur.q.bearing;
+  const heading=Hmag==null?null:fixA(Hmag+S.dec);
+  const rot=heading==null?0:-heading;
+  let g='';
+  for(let a=0;a<360;a+=10){const maj=a%30===0;g+=`<line class="tick${maj?' maj':''}" x1="120" y1="16" x2="120" y2="${maj?28:22}" transform="rotate(${a} 120 120)"/>`}
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([l,a])=>{
+    const x=120+84*Math.sin(a*D2R),y=120-84*Math.cos(a*D2R);
+    g+=`<text class="${l==='N'?'n':''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" transform="rotate(${-rot} ${x.toFixed(1)} ${y.toFixed(1)})">${l}</text>`;
+  });
+  g+=`<g transform="rotate(${q.toFixed(2)} 120 120)"><line class="needle" x1="120" y1="120" x2="120" y2="68"/><circle class="mk" cx="120" cy="58" r="11"/><circle class="mk2" cx="120" cy="58" r="4"/></g>`;
+  if(isToday()){
+    const s=sunAt(Date.now(),S.loc.lat,S.loc.lng);
+    if(s.alt>0) g+=`<g transform="rotate(${s.az.toFixed(2)} 120 120)"><circle class="sunmk" cx="120" cy="16" r="7"/></g>`;
+  }
+  let ok=false,st='';
+  if(heading!=null){
+    const rel=wrap180(q-heading);
+    ok=Math.abs(rel)<3;
+    st=ok?'You are facing it':`Turn ${Math.abs(rel).toFixed(0)}° ${rel>0?'right':'left'}`;
+  }
+  $('dialWrap').innerHTML=`<svg class="dial${ok?' ok':''}" viewBox="0 0 240 240" role="img" aria-label="Direction dial, ${q.toFixed(0)} degrees from true north"><g transform="rotate(${rot.toFixed(2)} 120 120)"><circle class="ring" cx="120" cy="120" r="104"/>${g}</g><circle class="hub" cx="120" cy="120" r="5"/>${heading!=null?'<path class="lub" d="M120 2l7 11h-14z"/>':''}</svg>`;
+  $('qstate').textContent=st||(cur.q.dist<1?'':'Fixed to true north. The gold dot is the sun right now.');
+}
+function locSub(){
+  const {lat,lng,tz}=S.loc;
+  let off='';
+  try{
+    const m=Math.round(tzOffset(Date.UTC(S.date.y,S.date.m-1,S.date.d,12),tz)/60000);
+    off=' · UTC'+(m<0?'−':'+')+Math.floor(Math.abs(m)/60)+(Math.abs(m)%60?':'+pad(Math.abs(m)%60):'');
+  }catch(e){}
+  return `${Math.abs(lat).toFixed(2)}° ${lat>=0?'N':'S'}, ${Math.abs(lng).toFixed(2)}° ${lng>=0?'E':'W'}${off}`;
+}
+function render(){
+  cur=compute();
+  const now=Date.now(),today=isToday(),{y,m,d}=S.date;
+  $('locName').textContent=S.loc.name;
+  $('locSub').textContent=locSub();
+  const noon=Date.UTC(y,m-1,d,12);
+  $('dateText').textContent=new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(noon);
+  $('dateTag').textContent=today?'Today':'';
+  $('dateTag').hidden=!today;
+  $('datePick').value=`${y}-${pad(m)}-${pad(d)}`;
+  $('todayBtn').hidden=today;
+  try{$('hijri').textContent=new Intl.DateTimeFormat('en-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(noon)}catch(e){$('hijri').textContent=''}
+  const showBanner=!S.useGps&&!S.manual;
+  $('banner').hidden=!showBanner;
+  if(showBanner) $('bannerText').textContent='Showing times for '+S.loc.name+'. Use your location for exact times.';
+  renderHero(cur,now,today);
+  renderRows(cur,now,today);
+  renderQibla(cur);
+  renderDial();
+}
+
+/* ---------- tabs ---------- */
+const TABS=['times','qibla','settings'];
+function showTab(t){
+  S.tab=t;
+  TABS.forEach(k=>{$('tab-'+k).hidden=k!==t;$('nav-'+k).setAttribute('aria-selected',k===t?'true':'false')});
+  save();window.scrollTo(0,0);
+}
+TABS.forEach(k=>$('nav-'+k).addEventListener('click',()=>showTab(k)));
+$('locBtn').addEventListener('click',()=>showTab('settings'));
+
+/* ---------- controls ---------- */
+function shiftDay(n){const t=new Date(Date.UTC(S.date.y,S.date.m-1,S.date.d+n));S.date={y:t.getUTCFullYear(),m:t.getUTCMonth()+1,d:t.getUTCDate()};render()}
+$('prev').addEventListener('click',()=>shiftDay(-1));
+$('next').addEventListener('click',()=>shiftDay(1));
+$('todayBtn').addEventListener('click',()=>{S.date=ymdIn(Date.now(),S.loc.tz);render()});
+$('datePick').addEventListener('change',e=>{
+  const v=/^(\d{4})-(\d{2})-(\d{2})$/.exec(e.target.value);
+  if(v){S.date={y:+v[1],m:+v[2],d:+v[3]};render()}
+});
+
+const citySel=$('city');
+citySel.innerHTML=CITIES.map((c,i)=>`<option value="${i}">${c[0]}</option>`).join('')+'<option value="custom">Custom coordinates</option>';
+Object.keys(METHODS).forEach(k=>{
+  const M=METHODS[k];
+  $('method').insertAdjacentHTML('beforeend',`<option value="${k}">${M.n} (${M.fajr}° / ${M.ishaMin!=null?M.ishaMin+' min':M.isha+'°'})</option>`);
+});
+function syncControls(){
+  const i=CITIES.findIndex(c=>c[0]===S.loc.name);
+  citySel.value=i>=0?String(i):'custom';
+  $('lat').value=S.loc.lat.toFixed(4);
+  $('lng').value=S.loc.lng.toFixed(4);
+  $('method').value=S.method;
+  $('asr').value=String(S.asr);
+  $('hl').value=S.hl;
+  $('h24').value=S.h24?'1':'0';
+  $('names').value=S.names;
+  $('callig').value=S.callig?'1':'0';
+  $('dec').value=String(S.dec);
+}
+function setLoc(loc){
+  const wasToday=isToday();
+  S.loc=loc;
+  try{new Intl.DateTimeFormat('en',{timeZone:loc.tz})}catch(e){S.loc.tz=deviceTz()}
+  if(wasToday) S.date=ymdIn(Date.now(),S.loc.tz);
+  save();syncControls();render();
+}
+function say(t){$('gpsMsg').textContent=t;$('bannerMsg').textContent=t}
+function locate(silent){
+  if(!navigator.geolocation){if(!silent)say('Location is not available here. Choose a city in Settings.');return}
+  if(!silent)say('Finding your location…');
+  navigator.geolocation.getCurrentPosition(p=>{
+    const lat=p.coords.latitude,lng=p.coords.longitude;
+    if(silent&&distKm(lat,lng,S.loc.lat,S.loc.lng)<2) return;
+    const n=nearestCity(lat,lng);
+    S.useGps=true;S.manual=false;
+    say('');
+    setLoc({name:n?n[0]:'My location',lat,lng,tz:deviceTz()});
+  },e=>{
+    if(silent)return;
+    say(e&&e.code===1?'Location permission is off. Allow it in your browser settings, or choose a city.':'Could not get a location. Try again, or choose a city.');
+  },{timeout:15000,maximumAge:3600000});
+}
+$('gps').addEventListener('click',()=>locate(false));
+$('bannerBtn').addEventListener('click',()=>locate(false));
+citySel.addEventListener('change',()=>{
+  if(citySel.value==='custom')return;
+  const c=CITIES[+citySel.value];
+  S.manual=true;S.useGps=false;say('');
+  setLoc({name:c[0],lat:c[1],lng:c[2],tz:c[3]});
+});
+$('applyLL').addEventListener('click',()=>{
+  const lat=parseFloat($('lat').value),lng=parseFloat($('lng').value);
+  if(!(lat>=-66&&lat<=66)||!(lng>=-180&&lng<=180)){say('Enter a latitude between −66 and 66 and a longitude between −180 and 180.');return}
+  S.manual=true;S.useGps=false;
+  say('Custom coordinates use this phone’s time zone.');
+  setLoc({name:'Custom location',lat,lng,tz:deviceTz()});
+});
+$('method').addEventListener('change',e=>{S.method=e.target.value;save();render()});
+$('asr').addEventListener('change',e=>{S.asr=+e.target.value;save();render()});
+$('hl').addEventListener('change',e=>{S.hl=e.target.value;save();render()});
+$('h24').addEventListener('change',e=>{S.h24=e.target.value==='1';save();render()});
+$('names').addEventListener('change',e=>{S.names=e.target.value;save();render()});
+$('callig').addEventListener('change',e=>{S.callig=e.target.value==='1';save();render()});
+$('dec').addEventListener('input',e=>{const v=parseFloat(e.target.value);S.dec=isFinite(v)?v:0;save();renderDial()});
+
+/* ---------- live compass ---------- */
+let got=false,live=false,raf=0;
+function onOri(e){
+  let h=null;
+  if(typeof e.webkitCompassHeading==='number') h=e.webkitCompassHeading;
+  else if(e.absolute&&typeof e.alpha==='number') h=fixA(360-e.alpha);
+  if(h==null)return;
+  if(!got){got=true;$('cmpMsg').textContent='Live compass on. Hold the phone flat and away from metal.';$('calBtn').disabled=false}
+  Hmag=h;
+  if(!raf)raf=requestAnimationFrame(()=>{raf=0;renderDial()});
+}
+function stopCompass(msg){
+  window.removeEventListener('deviceorientationabsolute',onOri,true);
+  window.removeEventListener('deviceorientation',onOri,true);
+  live=false;Hmag=null;
+  $('cmpBtn').textContent='Start live compass';
+  $('calBtn').disabled=true;
+  $('cmpMsg').textContent=msg||'';
+  renderDial();
+}
+$('cmpBtn').addEventListener('click',async()=>{
+  if(live){stopCompass('');return}
+  const msg=$('cmpMsg');
+  try{
+    if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){
+      const r=await DeviceOrientationEvent.requestPermission();
+      if(r!=='granted'){msg.textContent='Compass permission was declined.';return}
+    }
+  }catch(e){msg.textContent='Compass permission was declined.';return}
+  got=false;live=true;
+  window.addEventListener('deviceorientationabsolute',onOri,true);
+  window.addEventListener('deviceorientation',onOri,true);
+  $('cmpBtn').textContent='Stop compass';
+  msg.textContent='Waiting for the compass…';
+  setTimeout(()=>{if(live&&!got)stopCompass('This device or view does not share its compass, so the dial stays fixed to true north.')},2500);
+});
+$('calBtn').addEventListener('click',()=>{
+  const msg=$('cmpMsg');
+  if(Hmag==null){msg.textContent='Start the live compass first.';return}
+  const s=sunAt(Date.now(),S.loc.lat,S.loc.lng);
+  if(s.alt<3){msg.textContent='The sun is below or too close to the horizon right now. Try again when it is higher.';return}
+  S.dec=Math.round(wrap180(s.az-Hmag)*10)/10;
+  $('dec').value=String(S.dec);save();
+  msg.textContent='Calibrated. The offset between your compass and true north is '+deg(S.dec)+'.';
+  renderDial();
+});
+
+/* ---------- clock ---------- */
+setInterval(()=>{
+  if(!isToday()||!nextCache||!nextCache.ms)return;
+  const now=Date.now();
+  if(now>=nextCache.ms){render();return}
+  const el=$('cd');if(el)el.textContent=cdText(nextCache.ms-now);
+},1000);
+setInterval(()=>{if(isToday())render()},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
+
+try{
+  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}catch(e){}
+
+syncControls();
+showTab(S.tab);
+render();
+if(S.useGps) locate(true);
+})();
+</script>
+
+</body>
+</html>
